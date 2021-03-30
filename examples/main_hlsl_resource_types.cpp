@@ -151,6 +151,12 @@ int main(int argn, char** argv)
 
     StreamWrite(std::cout, reflection);
     std::cout << std::endl << std::endl;
+    auto num_files = reflection.GetSourceFilesNumber();
+    for (auto i = 0; i < num_files; i++)
+    {
+      std::cout << reflection.GetSourceFile(i) << std::endl;
+      std::cout << reflection.GetSourceFileData(i) << std::endl;
+    }
   }
 
 

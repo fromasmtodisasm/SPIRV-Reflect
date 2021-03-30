@@ -1012,7 +1012,7 @@ void StreamWriteShaderModule(std::ostream& os, const SpvReflectShaderModule& obj
   os << "generator       : " << ToStringGenerator(obj.generator) << "\n";
   os << "source lang     : " << spvReflectSourceLanguage(obj.source_language) << "\n";
   os << "source lang ver : " << obj.source_language_version << "\n";
-  os << "source file     : " << (obj.source_file != NULL ? obj.source_file : "") << "\n";
+  os << "source file     : " << (obj.source_files.size() > 0 ? obj.source_files[0] : "") << "\n";
   //os << "shader stage    : " << ToStringShaderStage(obj.shader_stage) << "\n";
 
   for (uint32_t i = 0; i < obj.entry_point_count; ++i) {

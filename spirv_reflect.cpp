@@ -198,8 +198,8 @@ typedef struct Parser {
   String*               strings;
   SpvSourceLanguage     source_language;
   uint32_t              source_language_version;
-  uint32_t              source_file_id;
-  const char*           source_embedded;
+  std::vector<uint32_t>              source_files_id;
+  std::vector<std::string>           source_embedded;
   size_t                node_count;
   Node*                 nodes;
   uint32_t              entry_point_count;
@@ -559,7 +559,7 @@ static void DestroyParser(Parser* p_parser)
 
     SafeFree(p_parser->nodes);
     SafeFree(p_parser->strings);
-    SafeFree(p_parser->source_embedded);
+    //SafeFree(p_parser->source_embedded);
     SafeFree(p_parser->functions);
     SafeFree(p_parser->access_chains);
     p_parser->node_count = 0;
@@ -612,8 +612,8 @@ static SpvReflectResult ParseNodes(Parser* p_parser)
     p_parser->nodes[i].decorations.built_in = (SpvBuiltIn)INVALID_VALUE;
   }
   // Mark source file id node
-  p_parser->source_file_id = (uint32_t)INVALID_VALUE;
-  p_parser->source_embedded = NULL;
+  p_parser->source_files_id;// = (uint32_t)INVALID_VALUE;
+  //p_parser->source_embedded = NULL;
 
   // Function node
   uint32_t function_node = (uint32_t)INVALID_VALUE;
@@ -652,7 +652,9 @@ static SpvReflectResult ParseNodes(Parser* p_parser)
         CHECKED_READU32_CAST(p_parser, p_node->word_offset + 1, SpvSourceLanguage, p_parser->source_language);
         CHECKED_READU32(p_parser, p_node->word_offset + 2, p_parser->source_language_version);
         if (p_node->word_count >= 4) {
-          CHECKED_READU32(p_parser, p_node->word_offset + 3, p_parser->source_file_id);
+          uint32_t file_id = 0xffffffff;
+          CHECKED_READU32(p_parser, p_node->word_offset + 3, file_id);
+          p_parser->source_files_id.push_back(file_id);
         }
         if (p_node->word_count >= 5) {
           const char* p_source = (const char*)(p_parser->spirv_code + p_node->word_offset + 4);
@@ -670,12 +672,13 @@ static SpvReflectResult ParseNodes(Parser* p_parser)
           strcpy(p_source_temp, p_source);
       #endif
 
-          p_parser->source_embedded = p_source_temp;
+          p_parser->source_embedded.push_back(p_source_temp);
         }
       }
       break;
 
       case SpvOpSourceContinued: {
+#if 0
         const char* p_source = (const char*)(p_parser->spirv_code + p_node->word_offset + 1);
 
         const size_t source_len = strlen(p_source);
@@ -696,6 +699,7 @@ static SpvReflectResult ParseNodes(Parser* p_parser)
 
         SafeFree(p_parser->source_embedded);
         p_parser->source_embedded = p_continued_source;
+#endif
       }
       break;
 
@@ -956,31 +960,25 @@ static SpvReflectResult ParseSource(Parser* p_parser, SpvReflectShaderModule* p_
     if (IsNotNull(p_parser->strings)) {
       for (uint32_t i = 0; i < p_parser->string_count; ++i) {
         String* p_string = &(p_parser->strings[i]);
-        if (p_string->result_id == p_parser->source_file_id) {
-          p_module->source_file = p_string->string;
-          break;
+        bool found = false;
+        for (auto id : p_parser->source_files_id)
+        {
+          if (p_string->result_id == id) {
+            p_module->source_files.push_back(p_string->string);
+            found = true;
+            break;
+          }
+          if (found) break;
+        }
+
+        //Source code
+        if (p_module->source_files.size() > 0)
+        {
+          p_module->source_source.push_back(p_parser->source_embedded[p_module->source_files.size() - 1]);
         }
       }
     }
 
-    //Source code
-    if (IsNotNull(p_parser->source_embedded))
-    {
-      const size_t source_len = strlen(p_parser->source_embedded);
-      char* p_source = (char*)calloc(source_len + 1, sizeof(char*));
-
-      if (IsNull(p_source)) {
-        return SPV_REFLECT_RESULT_ERROR_ALLOC_FAILED;
-      }
-
-    #ifdef _WIN32
-      strcpy_s(p_source, source_len + 1, p_parser->source_embedded);
-    #else
-      strcpy(p_source, p_parser->source_embedded);
-    #endif
-
-      p_module->source_source = p_source;
-    }
   }
 
   return SPV_REFLECT_RESULT_SUCCESS;
@@ -3663,7 +3661,7 @@ void spvReflectDestroyShaderModule(SpvReflectShaderModule* p_module)
     return;
   }
 
-  SafeFree(p_module->source_source);
+  //SafeFree(p_module->source_source);
 
   // Descriptor set bindings
   for (size_t i = 0; i < p_module->descriptor_set_count; ++i) {
